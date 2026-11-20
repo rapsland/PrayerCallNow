@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hilal (Crescent) -->
+    <path
+        android:fillColor="#F5C451"
+        android:pathData="M57,26 A10,10 0 1,0 64,43 A8,8 0 1,1 57,26 Z" />
+    <!-- Sol Minare -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M31,42 L33.5,35 L36,42 L36,75 L31,75 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M29.5,48 L37.5,48 L37.5,50 L29.5,50 Z" />
+    <!-- Sağ Minare -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,42 L74.5,35 L77,42 L77,75 L72,75 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70.5,48 L78.5,48 L78.5,50 L70.5,50 Z" />
+    <!-- Ana Kubbe ve Gövde -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M39,75 L39,58 C39,49 47,44 54,40 C61,44 69,49 69,58 L69,75 L60,75 L60,65 C60,61.5 57.5,59 54,59 C50.5,59 48,61.5 48,65 L48,75 Z" />
+    <!-- Alt Kaide -->
+    <path
+        android:fillColor="#E2F2E9"
+        android:pathData="M28,75 L80,75 L80,78 L28,78 Z" />
+</vector>

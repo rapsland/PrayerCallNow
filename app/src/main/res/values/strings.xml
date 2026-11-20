@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EzanNow!</string>
+    <string name="widget_description">Günlük namaz vakitlerini ve bir sonraki vakti ana ekranda gösterir.</string>
+    <string name="notification_channel_name">Namaz Vakti Bildirimleri</string>
+    <string name="notification_channel_desc">Namaz vakitleri için hatırlatma ve vakit bildirimleri</string>
+    <string name="notification_channel_silent_name">Namaz Vakti (Sessiz / Test)</string>
+</resources>

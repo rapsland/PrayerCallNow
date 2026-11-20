@@ -5,4 +5,6 @@
     <string name="notification_channel_name">Namaz Vakti Bildirimleri</string>
     <string name="notification_channel_desc">Namaz vakitleri için hatırlatma ve vakit bildirimleri</string>
     <string name="notification_channel_silent_name">Namaz Vakti (Sessiz / Test)</string>
+    <string name="notification_channel_status_name">Durum Çubuğu Vakit Göstergesi</string>
+    <string name="notification_channel_status_desc">Üst çubukta sıradaki namaz vaktini ve geri sayımı sessizce gösterir</string>
 </resources>

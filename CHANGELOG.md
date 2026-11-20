@@ -7,6 +7,20 @@
 
 ---
 
+## v0.7.0 (2026-11-20)
+### Özellikler
+- **Durum Çubuğunda Sıradaki Vakit Göstergesi (Pil Dostu, Servis Gerektirmez)**: Üst durum çubuğunda küçük cami simgesi ve bildirim panelinde Android'in yerleşik geri sayımı (`Chronometer`) ile sıradaki namaz vaktini ve günün tüm vakitlerini sessizce gösterir (~%0 CPU yükü).
+- **Ayarlar Kontrolü & Otomatik Güncelleme**: *Ayarlar → Bildirimler ve Uyarılar → „Durum Çubuğunda Vakit Göster“* anahtarıyla açılıp kapatılabilir; her vakit geçişinde ve saat 24:00'te günlük bildirim temizliğiyle uyumlu biçimde otomatik yenilenir.
+
+---
+
+## v0.6.0 (2026-11-20)
+### Özellikler
+- **Uygulama Kapatılsa da Sesli Bildirim (`PrayerAlertService` + `setAlarmClock`)**: Uygulama Son Uygulamalar ekranından kaydırılarak tamamen kapatıldığında veya cihaz Doze/kilit modundayken dahi namaz vakti alarmları `AlarmClock` önceliğiyle tetiklenir; kısa süreli ön plan servisi seçilen tonu 4–10 saniye çalıp otomatik olarak kapanır (arka planda 0 yük kalır).
+- **10 Saniye Arka Plan Testi**: Ayarlar → *Bildirimler ve Uyarılar* altına, uygulamayı kaydırarak kapattıktan sonra alarm ve sesi canlı test etmek için *"10 sn Arka Plan Testi"* butonu eklendi.
+
+---
+
 ## v0.5.1 (2026-11-20)
 ### Düzeltmeler & İyileştirmeler
 - **Ses Kaynakları ve Etiket Temizliği**: Tüm yerleşik bildirim ve ezan seslerinden harici meta veri (ID3/Xing) başlıkları temizlendi, ses dosyaları standart `ezannow_*.mp3` biçiminde adlandırıldı ve arayüz ses isimleri sadeleştirildi.

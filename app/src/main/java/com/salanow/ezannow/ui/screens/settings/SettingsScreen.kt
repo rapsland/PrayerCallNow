@@ -74,11 +74,13 @@ fun SettingsScreen(
     onTogglePrayerNotif: (PrayerType) -> Unit,
     onSetLeadMinutes: (Int) -> Unit,
     onToggleNotificationSound: (Boolean) -> Unit,
+    onTogglePersistentStatusNotif: (Boolean) -> Unit,
     onSelectSoundPreset: (NotificationSoundPreset) -> Unit,
     onSetSoundDurationSeconds: (Int) -> Unit,
     onPickCustomSound: () -> Unit,
     onPreviewSound: () -> Unit,
     onSendTestNotification: () -> Unit,
+    onScheduleBackgroundSwipeTest: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onSelectTheme: (ThemeMode) -> Unit,
     onToggleTestMode: (Boolean) -> Unit,
@@ -301,6 +303,35 @@ fun SettingsScreen(
                 }
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onTogglePersistentStatusNotif(!settings.persistentStatusNotificationEnabled)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Durum Çubuğunda Vakit Göster",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Üst çubukta simge ve sıradaki vakte geri sayım (pil dostu)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.persistentStatusNotificationEnabled,
+                        onCheckedChange = onTogglePersistentStatusNotif
+                    )
+                }
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+
                 val currentSoundLabel = if (
                     settings.notificationSoundPreset == NotificationSoundPreset.CUSTOM_URI &&
                     settings.customNotificationSoundName.isNotBlank()
@@ -388,25 +419,41 @@ fun SettingsScreen(
                 }
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = onPreviewSound) {
-                        Text("Sesi Dinle")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(onClick = onPreviewSound) {
+                            Text("Sesi Dinle")
+                        }
+                        FilledTonalButton(onClick = onSendTestNotification) {
+                            Icon(
+                                imageVector = EzanIcons.BellOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Bildirimi Gönder")
+                        }
                     }
-                    FilledTonalButton(onClick = onSendTestNotification) {
-                        Icon(
-                            imageVector = EzanIcons.BellOn,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Test Bildirimi Gönder")
+                    OutlinedButton(
+                        onClick = onScheduleBackgroundSwipeTest,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("10 sn Arka Plan Testi (Uygulamayı Kapat)")
                     }
+                    Text(
+                        text = "Alarmı 10 sn sonraya kurar; uygulamayı kaydırarak kapatsanız da bildirim ve ses çalar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

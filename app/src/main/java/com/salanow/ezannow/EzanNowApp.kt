@@ -14,6 +14,7 @@ class EzanNowApp : Application() {
         PrayerNotificationHelper.ensureChannel(this)
         CoroutineScope(Dispatchers.IO).launch {
             PrayerAlarmScheduler.scheduleNextAlarm(this@EzanNowApp)
+            PrayerNotificationHelper.refreshPersistentStatusNotification(this@EzanNowApp)
         }
     }
 }

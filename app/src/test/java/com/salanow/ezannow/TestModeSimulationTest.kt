@@ -169,4 +169,17 @@ class TestModeSimulationTest {
         assertEquals(10, GentleTonePlayer.MAX_DURATION_SECONDS)
         assertEquals(4, UserSettings().notificationSoundDurationSeconds)
     }
+
+    @Test
+    fun persistentStatusNotificationIsEnabledByDefaultWithNonCollidingId() {
+        assertTrue(UserSettings().persistentStatusNotificationEnabled)
+        val statusId = PrayerNotificationHelper.PERSISTENT_STATUS_NOTIFICATION_ID
+        val reservedAlertIds = PrayerType.entries.flatMap { prayer ->
+            listOf(
+                PrayerNotificationHelper.notificationIdFor(prayer, isSimulation = false),
+                PrayerNotificationHelper.notificationIdFor(prayer, isSimulation = true)
+            )
+        } + PrayerNotificationHelper.TEST_NOTIFICATION_ID
+        assertTrue("Status notification ID collided with alert IDs", statusId !in reservedAlertIds)
+    }
 }

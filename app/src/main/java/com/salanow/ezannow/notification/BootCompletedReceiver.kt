@@ -26,6 +26,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 PrayerAlarmScheduler.scheduleNextAlarm(context)
+                PrayerNotificationHelper.refreshPersistentStatusNotification(context)
                 EzanNowWidgetProvider.updateAllWidgets(context)
             } finally {
                 pendingResult.finish()

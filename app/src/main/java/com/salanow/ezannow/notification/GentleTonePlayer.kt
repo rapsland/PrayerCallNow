@@ -2,9 +2,12 @@ package com.salanow.ezannow.notification
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.RawRes
@@ -20,6 +23,9 @@ object GentleTonePlayer {
     private val lock = Any()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var activePlayer: MediaPlayer? = null
+    private var activeAudioManager: AudioManager? = null
+    private var activeFocusRequest: AudioFocusRequest? = null
+    private var activeOnFinished: (() -> Unit)? = null
     private val autoStopRunnable = Runnable { stop() }
 
     @RawRes
@@ -44,10 +50,13 @@ object GentleTonePlayer {
         context: Context,
         preset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1,
         customUriString: String = "",
-        durationSeconds: Int = DEFAULT_DURATION_SECONDS
+        durationSeconds: Int = DEFAULT_DURATION_SECONDS,
+        useNotificationStream: Boolean = false,
+        onFinished: (() -> Unit)? = null
     ) {
         if (preset == NotificationSoundPreset.SILENT) {
             stop()
+            dispatchFinished(onFinished)
             return
         }
 
@@ -55,20 +64,37 @@ object GentleTonePlayer {
             .coerceIn(MIN_DURATION_SECONDS, MAX_DURATION_SECONDS) * 1_000L
         val appContext = context.applicationContext
         val startRunnable = Runnable {
+            val previousFinished: (() -> Unit)?
+            var pendingFinished: (() -> Unit)? = null
             synchronized(lock) {
                 mainHandler.removeCallbacks(autoStopRunnable)
-                stopAndReleaseLocked()
+                previousFinished = stopAndReleaseLocked()
+                activeOnFinished = onFinished
 
-                val started = startPlayerForPreset(appContext, preset, customUriString, durationMs)
+                val started = startPlayerForPreset(
+                    appContext = appContext,
+                    preset = preset,
+                    customUriString = customUriString,
+                    durationMs = durationMs,
+                    useNotificationStream = useNotificationStream
+                )
                 if (!started && preset == NotificationSoundPreset.CUSTOM_URI) {
-                    startPlayerForPreset(
-                        appContext,
-                        NotificationSoundPreset.MELODI_1,
-                        "",
-                        durationMs
+                    val fallbackStarted = startPlayerForPreset(
+                        appContext = appContext,
+                        preset = NotificationSoundPreset.MELODI_1,
+                        customUriString = "",
+                        durationMs = durationMs,
+                        useNotificationStream = useNotificationStream
                     )
+                    if (!fallbackStarted) {
+                        pendingFinished = stopAndReleaseLocked()
+                    }
+                } else if (!started) {
+                    pendingFinished = stopAndReleaseLocked()
                 }
             }
+            dispatchFinished(previousFinished)
+            dispatchFinished(pendingFinished)
         }
 
         if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -82,17 +108,27 @@ object GentleTonePlayer {
         appContext: Context,
         preset: NotificationSoundPreset,
         customUriString: String,
-        durationMs: Long
+        durationMs: Long,
+        useNotificationStream: Boolean
     ): Boolean {
         return runCatching {
-            val player = MediaPlayer()
-            activePlayer = player
-            player.setAudioAttributes(
+            val attrs = if (useNotificationStream) {
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            } else {
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
-            )
+            }
+
+            requestTransientAudioFocusLocked(appContext, attrs)
+
+            val player = MediaPlayer()
+            activePlayer = player
+            player.setAudioAttributes(attrs)
 
             val rawRes = rawResForPreset(preset)
             if (rawRes != null) {
@@ -116,24 +152,30 @@ object GentleTonePlayer {
             }
 
             player.setOnCompletionListener { mp ->
+                val finished: (() -> Unit)?
                 synchronized(lock) {
                     mainHandler.removeCallbacks(autoStopRunnable)
-                    if (activePlayer === mp) {
+                    finished = if (activePlayer === mp) {
                         stopAndReleaseLocked()
                     } else {
                         runCatching { mp.release() }
+                        null
                     }
                 }
+                dispatchFinished(finished)
             }
             player.setOnErrorListener { mp, _, _ ->
+                val finished: (() -> Unit)?
                 synchronized(lock) {
                     mainHandler.removeCallbacks(autoStopRunnable)
-                    if (activePlayer === mp) {
+                    finished = if (activePlayer === mp) {
                         stopAndReleaseLocked()
                     } else {
                         runCatching { mp.release() }
+                        null
                     }
                 }
+                dispatchFinished(finished)
                 true
             }
             player.prepare()
@@ -141,18 +183,47 @@ object GentleTonePlayer {
             mainHandler.postDelayed(autoStopRunnable, durationMs)
             true
         }.onFailure {
+            val saved = activeOnFinished
             stopAndReleaseLocked()
+            activeOnFinished = saved
         }.getOrDefault(false)
     }
 
     fun stop() {
         mainHandler.removeCallbacks(autoStopRunnable)
-        synchronized(lock) {
+        val finished = synchronized(lock) {
             stopAndReleaseLocked()
+        }
+        dispatchFinished(finished)
+    }
+
+    private fun requestTransientAudioFocusLocked(
+        appContext: Context,
+        attrs: AudioAttributes
+    ) {
+        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        activeAudioManager = am
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attrs)
+                .setAcceptsDelayedFocusGain(false)
+                .setOnAudioFocusChangeListener { }
+                .build()
+            activeFocusRequest = req
+            runCatching { am.requestAudioFocus(req) }
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching {
+                am.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_NOTIFICATION,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                )
+            }
         }
     }
 
-    private fun stopAndReleaseLocked() {
+    private fun stopAndReleaseLocked(): (() -> Unit)? {
         val player = activePlayer
         activePlayer = null
         if (player != null) {
@@ -162,6 +233,30 @@ object GentleTonePlayer {
                 }
             }
             runCatching { player.release() }
+        }
+        val am = activeAudioManager
+        val req = activeFocusRequest
+        activeAudioManager = null
+        activeFocusRequest = null
+        if (am != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && req != null) {
+                runCatching { am.abandonAudioFocusRequest(req) }
+            } else {
+                @Suppress("DEPRECATION")
+                runCatching { am.abandonAudioFocus(null) }
+            }
+        }
+        val callback = activeOnFinished
+        activeOnFinished = null
+        return callback
+    }
+
+    private fun dispatchFinished(callback: (() -> Unit)?) {
+        if (callback == null) return
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            callback.invoke()
+        } else {
+            mainHandler.post { callback.invoke() }
         }
     }
 }

@@ -118,6 +118,7 @@ private fun EzanNowRoot(viewModel: MainViewModel) {
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
+            viewModel.refreshOnForeground()
             viewModel.showStatusMessage("Bildirim izni verildi.")
         } else {
             viewModel.showStatusMessage("Bildirim izni verilmedi.")
@@ -286,6 +287,7 @@ private fun EzanNowRoot(viewModel: MainViewModel) {
                             onTogglePrayerNotif = viewModel::togglePrayerNotification,
                             onSetLeadMinutes = viewModel::setNotificationLeadMinutes,
                             onToggleNotificationSound = viewModel::setNotificationSoundEnabled,
+                            onTogglePersistentStatusNotif = viewModel::setPersistentStatusNotificationEnabled,
                             onSelectSoundPreset = viewModel::selectNotificationSoundPreset,
                             onSetSoundDurationSeconds = viewModel::setNotificationSoundDurationSeconds,
                             onPickCustomSound = {
@@ -293,6 +295,7 @@ private fun EzanNowRoot(viewModel: MainViewModel) {
                             },
                             onPreviewSound = viewModel::previewGentleTone,
                             onSendTestNotification = viewModel::sendTestNotification,
+                            onScheduleBackgroundSwipeTest = viewModel::scheduleBackgroundSwipeTestAlarm,
                             onRequestNotificationPermission = requestNotificationPerm,
                             onSelectTheme = viewModel::setThemeMode,
                             onToggleTestMode = viewModel::setTestModeEnabled,

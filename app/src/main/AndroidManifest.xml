@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-feature
         android:name="android.hardware.location.gps"
@@ -39,6 +42,12 @@
         <receiver
             android:name=".notification.PrayerAlarmReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".notification.PrayerAlertService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="false" />
 
         <receiver
             android:name=".notification.BootCompletedReceiver"

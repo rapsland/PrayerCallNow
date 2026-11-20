@@ -267,6 +267,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch(Dispatchers.IO) {
             PrayerAlarmScheduler.scheduleNextAlarm(appContext)
+            PrayerNotificationHelper.refreshPersistentStatusNotification(appContext)
             EzanNowWidgetProvider.updateAllWidgets(appContext)
         }
     }
@@ -275,6 +276,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         tickerMillis.value = System.currentTimeMillis()
         viewModelScope.launch(Dispatchers.IO) {
             PrayerAlarmScheduler.scheduleNextAlarm(appContext)
+            PrayerNotificationHelper.refreshPersistentStatusNotification(appContext)
             EzanNowWidgetProvider.updateAllWidgets(appContext)
         }
     }
@@ -413,6 +415,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setPersistentStatusNotificationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setPersistentStatusNotificationEnabled(enabled)
+            syncBackgroundServices()
+        }
+    }
+
     fun selectNotificationSoundPreset(preset: NotificationSoundPreset) {
         viewModelScope.launch {
             repository.setNotificationSoundPreset(preset)
@@ -484,6 +493,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             "Bildirim göndermek için bildirim izni verin."
         }
+    }
+
+    fun scheduleBackgroundSwipeTestAlarm() {
+        val settings = uiState.value.settings
+        PrayerAlarmScheduler.scheduleDelayedTestAlarm(appContext, settings, delaySeconds = 10)
+        statusMessageFlow.value =
+            "10 sn sonra test alarmı kuruldu. Uygulamayı kapatıp (kaydırarak) test edebilirsiniz."
     }
 
     fun prevTimetableMonth() {
@@ -758,6 +774,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun syncBackgroundServices() {
         val latest = repository.currentSettings()
         PrayerAlarmScheduler.scheduleNextAlarm(appContext, latest)
+        PrayerNotificationHelper.refreshPersistentStatusNotification(appContext, latest)
         EzanNowWidgetProvider.updateAllWidgets(appContext)
     }
 

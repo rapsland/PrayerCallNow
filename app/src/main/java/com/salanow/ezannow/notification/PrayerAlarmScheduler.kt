@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.salanow.ezannow.MainActivity
 import com.salanow.ezannow.data.preferences.UserSettings
 import com.salanow.ezannow.data.preferences.UserSettingsRepository
 import com.salanow.ezannow.domain.calculator.PrayerTimeCalculator
@@ -16,12 +17,17 @@ import java.util.TimeZone
 
 object PrayerAlarmScheduler {
 
+    private const val REQ_ALARM_SHOW_INTENT = 4100
     private const val REQ_PRAYER_ALARM = 4101
     private const val REQ_MIDNIGHT_REFRESH = 4102
+    private const val REQ_DELAYED_TEST = 4103
+    private const val REQ_STATUS_REFRESH = 4104
 
     const val EXTRA_KIND = "extra_kind"
     const val KIND_PRAYER = "prayer"
     const val KIND_REFRESH = "refresh"
+    const val KIND_DELAYED_TEST = "delayed_test"
+    const val KIND_STATUS_REFRESH = "status_refresh"
     const val EXTRA_PRAYER_NAME = "extra_prayer_name"
     const val EXTRA_PRAYER_TIME = "extra_prayer_time"
     const val EXTRA_CITY_NAME = "extra_city_name"
@@ -91,7 +97,7 @@ object PrayerAlarmScheduler {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            setAlarmSafe(alarmManager, triggerMs, pi)
+            setAlarmClockSafe(alarmManager, context, triggerMs, pi)
         } else {
             val cancelIntent = Intent(context, PrayerAlarmReceiver::class.java)
             val pi = PendingIntent.getBroadcast(
@@ -127,7 +133,82 @@ object PrayerAlarmScheduler {
             refreshIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        setAlarmSafe(alarmManager, midnightCal.timeInMillis, refreshPi)
+        setExactSafe(alarmManager, midnightCal.timeInMillis, refreshPi)
+
+        // Keep the silent status-bar countdown updated at every prayer transition (even if an individual alert is off)
+        if (settings.persistentStatusNotificationEnabled) {
+            val yesterdayTimes = PrayerTimeCalculator.calculateDay(
+                location = settings.location,
+                date = today.plusDays(-1),
+                method = settings.calculationMethod,
+                madhab = settings.madhab,
+                highLatRule = settings.highLatitudeRule,
+                userAdjustments = settings.adjustments
+            )
+            val nextInfo = PrayerTimeCalculator.computeNextPrayer(
+                today = todayTimes,
+                tomorrow = tomorrowTimes,
+                yesterday = yesterdayTimes,
+                nowMillis = nowMs
+            )
+            val statusTriggerMs = nextInfo.nextPrayerTimeMillis + 1_500L
+            val prayerTriggerMs = candidateList?.first
+            val alreadyCoveredByPrayer = prayerTriggerMs != null &&
+                kotlin.math.abs(prayerTriggerMs - nextInfo.nextPrayerTimeMillis) <= 3_000L
+
+            if (statusTriggerMs > nowMs + 1_500L && !alreadyCoveredByPrayer) {
+                val statusIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                    putExtra(EXTRA_KIND, KIND_STATUS_REFRESH)
+                }
+                val statusPi = PendingIntent.getBroadcast(
+                    context,
+                    REQ_STATUS_REFRESH,
+                    statusIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                setExactSafe(alarmManager, statusTriggerMs, statusPi)
+            } else {
+                cancelStatusRefreshAlarm(context, alarmManager)
+            }
+        } else {
+            cancelStatusRefreshAlarm(context, alarmManager)
+        }
+    }
+
+    private fun cancelStatusRefreshAlarm(context: Context, alarmManager: AlarmManager) {
+        val cancelIntent = Intent(context, PrayerAlarmReceiver::class.java)
+        val pi = PendingIntent.getBroadcast(
+            context,
+            REQ_STATUS_REFRESH,
+            cancelIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pi != null) {
+            alarmManager.cancel(pi)
+        }
+    }
+
+    fun scheduleDelayedTestAlarm(
+        context: Context,
+        settings: UserSettings,
+        delaySeconds: Int = 10
+    ) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val triggerMs = System.currentTimeMillis() + delaySeconds.coerceIn(3, 60) * 1_000L
+        val intent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+            putExtra(EXTRA_KIND, KIND_DELAYED_TEST)
+            putExtra(EXTRA_CITY_NAME, settings.location.name)
+            putExtra(EXTRA_SOUND_PRESET, settings.notificationSoundPreset.name)
+            putExtra(EXTRA_CUSTOM_SOUND_URI, settings.customNotificationSoundUri)
+            putExtra(EXTRA_SOUND_DURATION_SEC, settings.notificationSoundDurationSeconds)
+        }
+        val pi = PendingIntent.getBroadcast(
+            context,
+            REQ_DELAYED_TEST,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        setAlarmClockSafe(alarmManager, context, triggerMs, pi)
     }
 
     fun canScheduleExact(context: Context): Boolean {
@@ -136,7 +217,38 @@ object PrayerAlarmScheduler {
         return am.canScheduleExactAlarms()
     }
 
-    private fun setAlarmSafe(
+    private fun setAlarmClockSafe(
+        alarmManager: AlarmManager,
+        context: Context,
+        triggerAtMillis: Long,
+        pendingIntent: PendingIntent
+    ) {
+        val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            alarmManager.canScheduleExactAlarms()
+        if (!canExact) {
+            setExactSafe(alarmManager, triggerAtMillis, pendingIntent)
+            return
+        }
+        val showIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val showPi = PendingIntent.getActivity(
+            context,
+            REQ_ALARM_SHOW_INTENT,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        runCatching {
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(triggerAtMillis, showPi),
+                pendingIntent
+            )
+        }.onFailure {
+            setExactSafe(alarmManager, triggerAtMillis, pendingIntent)
+        }
+    }
+
+    private fun setExactSafe(
         alarmManager: AlarmManager,
         triggerAtMillis: Long,
         pendingIntent: PendingIntent

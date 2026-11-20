@@ -51,6 +51,7 @@ data class UserSettings(
     val notificationSoundEnabled: Boolean = true,
     val notificationSoundPreset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1,
     val notificationSoundDurationSeconds: Int = DEFAULT_SOUND_DURATION_SECONDS,
+    val persistentStatusNotificationEnabled: Boolean = true,
     val customNotificationSoundUri: String = "",
     val customNotificationSoundName: String = "",
     val dhikrList: List<DhikrItem> = defaultDhikrPresets(),
@@ -113,6 +114,7 @@ class UserSettingsRepository(private val context: Context) {
         val SOUND_ENABLED = booleanPreferencesKey("notif_sound_enabled")
         val SOUND_PRESET = stringPreferencesKey("notif_sound_preset")
         val SOUND_DURATION_SECONDS = intPreferencesKey("notif_sound_duration_sec")
+        val PERSISTENT_STATUS_NOTIF = booleanPreferencesKey("persistent_status_notif")
         val CUSTOM_SOUND_URI = stringPreferencesKey("notif_custom_sound_uri")
         val CUSTOM_SOUND_NAME = stringPreferencesKey("notif_custom_sound_name")
 
@@ -226,6 +228,12 @@ class UserSettingsRepository(private val context: Context) {
                 UserSettings.MIN_SOUND_DURATION_SECONDS,
                 UserSettings.MAX_SOUND_DURATION_SECONDS
             )
+        }
+    }
+
+    suspend fun setPersistentStatusNotificationEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.PERSISTENT_STATUS_NOTIF] = enabled
         }
     }
 
@@ -380,6 +388,7 @@ class UserSettingsRepository(private val context: Context) {
             notificationSoundEnabled = soundPreset != NotificationSoundPreset.SILENT,
             notificationSoundPreset = soundPreset,
             notificationSoundDurationSeconds = soundDurationSeconds,
+            persistentStatusNotificationEnabled = prefs[Keys.PERSISTENT_STATUS_NOTIF] ?: true,
             customNotificationSoundUri = prefs[Keys.CUSTOM_SOUND_URI] ?: "",
             customNotificationSoundName = prefs[Keys.CUSTOM_SOUND_NAME] ?: "",
             dhikrList = dhikrList,

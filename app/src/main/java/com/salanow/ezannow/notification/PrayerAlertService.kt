@@ -28,6 +28,7 @@ class PrayerAlertService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val isTestAlarm = intent?.getBooleanExtra(EXTRA_IS_TEST_ALARM, false) == true
+        val isCustomTestTime = intent?.getBooleanExtra(EXTRA_IS_CUSTOM_TEST_TIME, false) == true
         val cityName = intent?.getStringExtra(PrayerAlarmScheduler.EXTRA_CITY_NAME).orEmpty()
         val presetName = intent?.getStringExtra(PrayerAlarmScheduler.EXTRA_SOUND_PRESET)
         val soundPreset = NotificationSoundPreset.entries.firstOrNull { it.name == presetName }
@@ -46,21 +47,26 @@ class PrayerAlertService : Service() {
         val leadMinutes = intent?.getIntExtra(PrayerAlarmScheduler.EXTRA_LEAD_MINUTES, 0) ?: 0
         val prayerType = PrayerType.entries.firstOrNull { it.name == prayerName }
 
-        val notifId = if (isTestAlarm || prayerType == null) {
-            PrayerNotificationHelper.TEST_NOTIFICATION_ID
-        } else {
-            PrayerNotificationHelper.notificationIdFor(prayerType, isSimulation = false)
+        val notifId = when {
+            isCustomTestTime -> PrayerNotificationHelper.CUSTOM_TEST_NOTIFICATION_ID
+            isTestAlarm || prayerType == null -> PrayerNotificationHelper.TEST_NOTIFICATION_ID
+            else -> PrayerNotificationHelper.notificationIdFor(prayerType, isSimulation = false)
         }
 
-        val notification = if (isTestAlarm || prayerType == null) {
-            PrayerNotificationHelper.buildTestNotification(
+        val notification = when {
+            isCustomTestTime -> PrayerNotificationHelper.buildCustomTestTimeNotification(
+                context = this,
+                timeFormatted = prayerTime,
+                cityName = cityName,
+                soundPreset = soundPreset
+            )
+            isTestAlarm || prayerType == null -> PrayerNotificationHelper.buildTestNotification(
                 context = this,
                 cityName = cityName,
                 soundPreset = soundPreset,
                 soundDurationSeconds = durationSec
             )
-        } else {
-            PrayerNotificationHelper.buildPrayerNotification(
+            else -> PrayerNotificationHelper.buildPrayerNotification(
                 context = this,
                 prayerType = prayerType,
                 prayerTimeFormatted = prayerTime,
@@ -98,7 +104,7 @@ class PrayerAlertService : Service() {
             preset = soundPreset,
             customUriString = customUri,
             durationSeconds = durationSec,
-            useNotificationStream = true,
+            useAlarmStream = true,
             onFinished = {
                 finishAlert(startId)
             }
@@ -154,6 +160,7 @@ class PrayerAlertService : Service() {
     companion object {
         private const val WAKE_LOCK_TAG = "EzanNow:PrayerAlertWakeLock"
         const val EXTRA_IS_TEST_ALARM = "extra_is_test_alarm"
+        const val EXTRA_IS_CUSTOM_TEST_TIME = "extra_is_custom_test_time"
 
         fun buildIntent(
             context: Context,
@@ -164,10 +171,12 @@ class PrayerAlertService : Service() {
             soundDurationSeconds: Int,
             prayerType: PrayerType? = null,
             prayerTimeFormatted: String = "",
-            leadMinutes: Int = 0
+            leadMinutes: Int = 0,
+            isCustomTestTime: Boolean = false
         ): Intent {
             return Intent(context, PrayerAlertService::class.java).apply {
                 putExtra(EXTRA_IS_TEST_ALARM, isTestAlarm)
+                putExtra(EXTRA_IS_CUSTOM_TEST_TIME, isCustomTestTime)
                 putExtra(PrayerAlarmScheduler.EXTRA_CITY_NAME, cityName)
                 putExtra(PrayerAlarmScheduler.EXTRA_SOUND_PRESET, soundPreset.name)
                 putExtra(PrayerAlarmScheduler.EXTRA_CUSTOM_SOUND_URI, customSoundUri)
@@ -176,6 +185,8 @@ class PrayerAlertService : Service() {
                     putExtra(PrayerAlarmScheduler.EXTRA_PRAYER_NAME, prayerType.name)
                     putExtra(PrayerAlarmScheduler.EXTRA_PRAYER_TIME, prayerTimeFormatted)
                     putExtra(PrayerAlarmScheduler.EXTRA_LEAD_MINUTES, leadMinutes)
+                } else if (prayerTimeFormatted.isNotBlank()) {
+                    putExtra(PrayerAlarmScheduler.EXTRA_PRAYER_TIME, prayerTimeFormatted)
                 }
             }
         }

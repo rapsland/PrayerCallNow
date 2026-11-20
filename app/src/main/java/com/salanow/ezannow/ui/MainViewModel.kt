@@ -502,6 +502,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             "10 sn sonra test alarmı kuruldu. Uygulamayı kapatıp (kaydırarak) test edebilirsiniz."
     }
 
+    fun setCustomTestTimeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setCustomTestTimeEnabled(enabled)
+            val latest = repository.currentSettings()
+            statusMessageFlow.value = if (enabled) {
+                "Özel test vakti etkin: ${latest.customTestTimeFormatted()}"
+            } else {
+                "Özel test vakti kapatıldı."
+            }
+            syncBackgroundServices()
+        }
+    }
+
+    fun setCustomTestTime(hour: Int, minute: Int) {
+        val clampedHour = hour.coerceIn(0, 23)
+        val clampedMinute = minute.coerceIn(0, 59)
+        viewModelScope.launch {
+            repository.setCustomTestTime(clampedHour, clampedMinute, enable = true)
+            statusMessageFlow.value = String.format(
+                java.util.Locale.US,
+                "Özel test vakti %02d:%02d için kuruldu.",
+                clampedHour,
+                clampedMinute
+            )
+            syncBackgroundServices()
+        }
+    }
+
+    fun setCustomTestTimeMinutesFromNow(minutesAhead: Int) {
+        val tz = java.util.TimeZone.getTimeZone(uiState.value.settings.location.timeZoneId)
+        val cal = java.util.Calendar.getInstance(tz).apply {
+            add(java.util.Calendar.MINUTE, minutesAhead.coerceIn(1, 720))
+        }
+        setCustomTestTime(
+            hour = cal.get(java.util.Calendar.HOUR_OF_DAY),
+            minute = cal.get(java.util.Calendar.MINUTE)
+        )
+    }
+
     fun prevTimetableMonth() {
         val current = uiState.value.timetableMonthDate
         timetableMonthFlow.value = current.plusMonths(-1)

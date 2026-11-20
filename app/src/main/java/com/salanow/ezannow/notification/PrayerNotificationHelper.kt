@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -80,39 +79,9 @@ object PrayerNotificationHelper {
                 }
             }
 
-            val activeSoundChannelId = channelIdForPreset(activePreset)
-            NotificationSoundPreset.entries.forEach { candidate ->
-                val candidateId = channelIdForPreset(candidate)
-                if (candidateId != CHANNEL_ID_SILENT &&
-                    candidateId != activeSoundChannelId &&
-                    nm.getNotificationChannel(candidateId) != null
-                ) {
-                    nm.deleteNotificationChannel(candidateId)
-                }
-            }
-
-            if (activeSoundChannelId != CHANNEL_ID_SILENT &&
-                nm.getNotificationChannel(activeSoundChannelId) == null
-            ) {
-                val uri = soundUriForPreset(context, activePreset)
-                val attrs = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-                val channel = NotificationChannel(
-                    activeSoundChannelId,
-                    "${context.getString(R.string.notification_channel_name)} (${activePreset.turkishName})",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = context.getString(R.string.notification_channel_desc)
-                    if (uri != null) {
-                        setSound(uri, attrs)
-                    }
-                    enableVibration(true)
-                    enableLights(true)
-                }
-                nm.createNotificationChannel(channel)
-            }
+            nm.notificationChannels
+                .filter { it.id.startsWith(CHANNEL_V3_PREFIX) }
+                .forEach { stale -> nm.deleteNotificationChannel(stale.id) }
 
             if (nm.getNotificationChannel(CHANNEL_ID_SILENT) == null) {
                 val silentChannel = NotificationChannel(
@@ -168,6 +137,7 @@ object PrayerNotificationHelper {
                 nm.cancel(notificationIdFor(prayer, isSimulation = true))
             }
             nm.cancel(TEST_NOTIFICATION_ID)
+            nm.cancel(CUSTOM_TEST_NOTIFICATION_ID)
         }
     }
 
@@ -276,6 +246,7 @@ object PrayerNotificationHelper {
         }
     }
 
+    const val CUSTOM_TEST_NOTIFICATION_ID = 2998
     const val TEST_NOTIFICATION_ID = 2999
 
     fun notificationIdFor(prayerType: PrayerType, isSimulation: Boolean = false): Int {
@@ -368,7 +339,7 @@ object PrayerNotificationHelper {
                 preset = soundPreset,
                 customUriString = customSoundUri,
                 durationSeconds = soundDurationSeconds,
-                useNotificationStream = !isSimulation,
+                useAlarmStream = !isSimulation,
                 onFinished = onPlaybackFinished
             )
         } else {
@@ -438,7 +409,86 @@ object PrayerNotificationHelper {
                 preset = soundPreset,
                 customUriString = customSoundUri,
                 durationSeconds = soundDurationSeconds,
-                useNotificationStream = false,
+                useAlarmStream = false,
+                onFinished = onPlaybackFinished
+            )
+        } else {
+            onPlaybackFinished?.invoke()
+        }
+        return posted
+    }
+
+    fun buildCustomTestTimeNotification(
+        context: Context,
+        timeFormatted: String,
+        cityName: String,
+        soundPreset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1
+    ): Notification {
+        ensureChannel(context, soundPreset)
+
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            998,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val bodyText = buildString {
+            if (cityName.isNotBlank()) append("$cityName • ")
+            if (timeFormatted.isNotBlank()) append("$timeFormatted — ")
+            append("Geliştirici özel test vakti bildirimi.")
+        }
+
+        return NotificationCompat.Builder(context, CHANNEL_ID_SILENT)
+            .setSmallIcon(R.drawable.ic_notification_mosque)
+            .setContentTitle("Özel Test Vakti Girdi")
+            .setContentText(bodyText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setTimeoutAfter(millisUntilMidnight())
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setContentIntent(contentPendingIntent)
+            .build()
+    }
+
+    fun showCustomTestTimeNotification(
+        context: Context,
+        timeFormatted: String,
+        cityName: String,
+        soundPreset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1,
+        customSoundUri: String = "",
+        soundDurationSeconds: Int = GentleTonePlayer.DEFAULT_DURATION_SECONDS,
+        onPlaybackFinished: (() -> Unit)? = null
+    ): Boolean {
+        if (!hasNotificationPermission(context)) {
+            onPlaybackFinished?.invoke()
+            return false
+        }
+
+        val notification = buildCustomTestTimeNotification(
+            context = context,
+            timeFormatted = timeFormatted,
+            cityName = cityName,
+            soundPreset = soundPreset
+        )
+
+        val posted = runCatching {
+            NotificationManagerCompat.from(context).notify(CUSTOM_TEST_NOTIFICATION_ID, notification)
+            true
+        }.getOrDefault(false)
+
+        if (posted && soundPreset != NotificationSoundPreset.SILENT) {
+            GentleTonePlayer.play(
+                context = context,
+                preset = soundPreset,
+                customUriString = customSoundUri,
+                durationSeconds = soundDurationSeconds,
+                useAlarmStream = true,
                 onFinished = onPlaybackFinished
             )
         } else {

@@ -7,6 +7,20 @@
 
 ---
 
+## v0.8.0 (2026-11-20)
+### Özellikler
+- **Geliştirici Özel Test Vakti (`Özel Test Vakti`)**: Zaman simülasyonu olmadan gerçek `AlarmClock` bildirimi ve sesini test etmek için istenen `SS:dd` saatini seçme (ve tek dokunuşla `+1 dk`, `+2 dk`, `+5 dk` hızlı kurulum) özelliği eklendi.
+- **Vakitler Ekranında İsteğe Bağlı 7. Kart**: Ayarlar → *Test Modu ve Geliştirici Testi* üzerinden açıldığında *Vakitler* ekranında sıradan vakitlerin altında canlı *Özel Test Vakti* kartı da görüntülenir ve açılıp kapatılabilir.
+
+---
+
+## v0.7.1 (2026-11-20)
+### Düzeltmeler & İyileştirmeler
+- **Sessiz Modda Bildirim Sesi Düzeltmesi**: Cihaz zil sesi sessiz veya titreşim modundayken (`STREAM_NOTIFICATION` = 0) vakit bildirimlerinin sessiz kalması giderildi; arka plan vakit alarmları artık `USAGE_ALARM` (yedek olarak `USAGE_MEDIA`) akışı üzerinden duyulabilir biçimde çalar.
+- **Eski Bildirim Kanalları Temizliği**: Önceki sürümlerden kalan kullanılmayan `ezannow_alert_v3_*` bildirim kanalları Android bildirim ayarlarından otomatik temizlenir.
+
+---
+
 ## v0.7.0 (2026-11-20)
 ### Özellikler
 - **Durum Çubuğunda Sıradaki Vakit Göstergesi (Pil Dostu, Servis Gerektirmez)**: Üst durum çubuğunda küçük cami simgesi ve bildirim panelinde Android'in yerleşik geri sayımı (`Chronometer`) ile sıradaki namaz vaktini ve günün tüm vakitlerini sessizce gösterir (~%0 CPU yükü).

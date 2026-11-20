@@ -9,6 +9,7 @@ import com.salanow.ezannow.domain.model.SimpleDate
 import com.salanow.ezannow.domain.testmode.TestModeSimulationHelper
 import com.salanow.ezannow.domain.testmode.TestModeState
 import com.salanow.ezannow.notification.GentleTonePlayer
+import com.salanow.ezannow.notification.PrayerAlarmScheduler
 import com.salanow.ezannow.notification.PrayerNotificationHelper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -179,7 +180,40 @@ class TestModeSimulationTest {
                 PrayerNotificationHelper.notificationIdFor(prayer, isSimulation = false),
                 PrayerNotificationHelper.notificationIdFor(prayer, isSimulation = true)
             )
-        } + PrayerNotificationHelper.TEST_NOTIFICATION_ID
+        } + PrayerNotificationHelper.TEST_NOTIFICATION_ID + PrayerNotificationHelper.CUSTOM_TEST_NOTIFICATION_ID
         assertTrue("Status notification ID collided with alert IDs", statusId !in reservedAlertIds)
+    }
+
+    @Test
+    fun customTestTimeDefaultsOffFormatsCleanlyAndComputesNextTrigger() {
+        val defaultSettings = UserSettings()
+        assertTrue(!defaultSettings.customTestTimeEnabled)
+        assertEquals("12:00", defaultSettings.customTestTimeFormatted())
+        assertEquals(
+            "09:05",
+            defaultSettings.copy(customTestTimeHour = 9, customTestTimeMinute = 5).customTestTimeFormatted()
+        )
+
+        val tz = TimeZone.getTimeZone("Europe/Istanbul")
+        val nowCal = GregorianCalendar(tz).apply {
+            clear()
+            set(2026, Calendar.NOVEMBER, 20, 19, 30, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val futureSameDay = PrayerAlarmScheduler.computeNextCustomTestTriggerMillis(
+            nowMillis = nowCal.timeInMillis,
+            timeZoneId = "Europe/Istanbul",
+            hour = 19,
+            minute = 35
+        )
+        assertEquals(5 * 60_000L, futureSameDay - nowCal.timeInMillis)
+
+        val pastRollsToNextDay = PrayerAlarmScheduler.computeNextCustomTestTriggerMillis(
+            nowMillis = nowCal.timeInMillis,
+            timeZoneId = "Europe/Istanbul",
+            hour = 19,
+            minute = 25
+        )
+        assertEquals((23 * 60L + 55L) * 60_000L, pastRollsToNextDay - nowCal.timeInMillis)
     }
 }

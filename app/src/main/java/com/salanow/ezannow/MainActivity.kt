@@ -236,6 +236,7 @@ private fun EzanNowRoot(viewModel: MainViewModel) {
                             onSelectDate = viewModel::selectDate,
                             onJumpToToday = viewModel::jumpToToday,
                             onTogglePrayerNotification = viewModel::togglePrayerNotification,
+                            onToggleCustomTestTime = viewModel::setCustomTestTimeEnabled,
                             onToggleTestPlayPause = viewModel::toggleTestModePlayPause,
                             onTestMinutesChange = viewModel::setTestModeMinutes,
                             onTestSpeedSelect = viewModel::setTestModeSpeed,
@@ -309,6 +310,9 @@ private fun EzanNowRoot(viewModel: MainViewModel) {
                                     restoreState = true
                                 }
                             },
+                            onToggleCustomTestTime = viewModel::setCustomTestTimeEnabled,
+                            onSetCustomTestTime = viewModel::setCustomTestTime,
+                            onSetCustomTestMinutesAhead = viewModel::setCustomTestTimeMinutesFromNow,
                             onReplaySplash = { showSplash = true }
                         )
                     }

@@ -85,6 +85,9 @@ fun SettingsScreen(
     onSelectTheme: (ThemeMode) -> Unit,
     onToggleTestMode: (Boolean) -> Unit,
     onLaunchTestModeOnHome: () -> Unit,
+    onToggleCustomTestTime: (Boolean) -> Unit,
+    onSetCustomTestTime: (Int, Int) -> Unit,
+    onSetCustomTestMinutesAhead: (Int) -> Unit,
     onReplaySplash: () -> Unit
 ) {
     val context = LocalContext.current
@@ -97,6 +100,7 @@ fun SettingsScreen(
     var showLeadMinutesDialog by remember { mutableStateOf(false) }
     var showSoundPickerDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showCustomTestTimeDialog by remember { mutableStateOf(false) }
 
     val hasNotifPermission = PrayerNotificationHelper.hasNotificationPermission(context)
     val canExactAlarm = PrayerAlarmScheduler.canScheduleExact(context)
@@ -460,7 +464,7 @@ fun SettingsScreen(
 
         // Test Modu Section
         item {
-            SettingsSectionCard(title = "Test Modu (0-24 Saat)") {
+            SettingsSectionCard(title = "Test Modu ve Geliştirici Testi") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -492,6 +496,65 @@ fun SettingsScreen(
                     value = "Zaman çubuğu ile 00:00 - 24:00 arası simülasyon",
                     onClick = onLaunchTestModeOnHome
                 )
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleCustomTestTime(!settings.customTestTimeEnabled) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Özel Test Vakti (Gerçek Alarm)",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Simülasyon olmadan girilen saatte gerçek bildirim + ses",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.customTestTimeEnabled,
+                        onCheckedChange = onToggleCustomTestTime
+                    )
+                }
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                SettingsActionRow(
+                    label = "Test Vakti Saati (SS:dd)",
+                    value = if (settings.customTestTimeEnabled) {
+                        "Aktif: ${settings.customTestTimeFormatted()} (düzenlemek için dokun)"
+                    } else {
+                        "${settings.customTestTimeFormatted()} (saat seçip otomatik etkinleştir)"
+                    },
+                    onClick = { showCustomTestTimeDialog = true }
+                )
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Hızlı:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(onClick = { onSetCustomTestMinutesAhead(1) }) {
+                        Text("+1 dk")
+                    }
+                    OutlinedButton(onClick = { onSetCustomTestMinutesAhead(2) }) {
+                        Text("+2 dk")
+                    }
+                    OutlinedButton(onClick = { onSetCustomTestMinutesAhead(5) }) {
+                        Text("+5 dk")
+                    }
+                }
             }
         }
 
@@ -619,6 +682,18 @@ fun SettingsScreen(
                 showAdjustmentsDialog = false
             },
             onDismiss = { showAdjustmentsDialog = false }
+        )
+    }
+
+    if (showCustomTestTimeDialog) {
+        CustomTestTimeDialog(
+            initialHour = settings.customTestTimeHour,
+            initialMinute = settings.customTestTimeMinute,
+            onSave = { h, m ->
+                onSetCustomTestTime(h, m)
+                showCustomTestTimeDialog = false
+            },
+            onDismiss = { showCustomTestTimeDialog = false }
         )
     }
 }
@@ -896,6 +971,74 @@ private fun AdjustmentStepper(
             ) { Text("+", fontWeight = FontWeight.Bold) }
         }
     }
+}
+
+@Composable
+private fun CustomTestTimeDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onSave: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hour by remember { mutableIntStateOf(initialHour.coerceIn(0, 23)) }
+    var minute by remember { mutableIntStateOf(initialMinute.coerceIn(0, 59)) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Özel Test Vakti Saati") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = String.format(java.util.Locale.US, "Seçili Saat: %02d:%02d", hour, minute),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Saat", style = MaterialTheme.typography.bodyLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(onClick = { hour = (hour + 23) % 24 }) { Text("-1") }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = String.format(java.util.Locale.US, "%02d", hour),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedButton(onClick = { hour = (hour + 1) % 24 }) { Text("+1") }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Dakika", style = MaterialTheme.typography.bodyLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { minute = (minute + 55) % 60 }) { Text("-5") }
+                        TextButton(onClick = { minute = (minute + 59) % 60 }) { Text("-1") }
+                        Text(
+                            text = String.format(java.util.Locale.US, "%02d", minute),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        TextButton(onClick = { minute = (minute + 1) % 60 }) { Text("+1") }
+                        TextButton(onClick = { minute = (minute + 5) % 60 }) { Text("+5") }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(hour, minute) }) { Text("Kaydet ve Kur") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("İptal") }
+        }
+    )
 }
 
 private fun formatAdjustmentsSummary(adj: PrayerAdjustments): String {

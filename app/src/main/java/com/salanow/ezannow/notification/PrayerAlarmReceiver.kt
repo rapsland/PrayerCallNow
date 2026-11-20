@@ -20,8 +20,12 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
         val kind = intent?.getStringExtra(PrayerAlarmScheduler.EXTRA_KIND)
         var fallbackNeedsAudioWait: (() -> Unit)? = null
 
-        if (kind == PrayerAlarmScheduler.KIND_PRAYER || kind == PrayerAlarmScheduler.KIND_DELAYED_TEST) {
+        if (kind == PrayerAlarmScheduler.KIND_PRAYER ||
+            kind == PrayerAlarmScheduler.KIND_DELAYED_TEST ||
+            kind == PrayerAlarmScheduler.KIND_CUSTOM_TEST_TIME
+        ) {
             val isTestAlarm = kind == PrayerAlarmScheduler.KIND_DELAYED_TEST
+            val isCustomTestTime = kind == PrayerAlarmScheduler.KIND_CUSTOM_TEST_TIME
             val prayerName = intent.getStringExtra(PrayerAlarmScheduler.EXTRA_PRAYER_NAME)
             val prayerTime = intent.getStringExtra(PrayerAlarmScheduler.EXTRA_PRAYER_TIME).orEmpty()
             val cityName = intent.getStringExtra(PrayerAlarmScheduler.EXTRA_CITY_NAME).orEmpty()
@@ -36,7 +40,7 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
             )
             val prayerType = PrayerType.entries.firstOrNull { it.name == prayerName }
 
-            if (isTestAlarm || prayerType != null) {
+            if (isTestAlarm || isCustomTestTime || prayerType != null) {
                 val serviceIntent = PrayerAlertService.buildIntent(
                     context = context,
                     isTestAlarm = isTestAlarm,
@@ -46,7 +50,8 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
                     soundDurationSeconds = soundDurationSec,
                     prayerType = prayerType,
                     prayerTimeFormatted = prayerTime,
-                    leadMinutes = leadMinutes
+                    leadMinutes = leadMinutes,
+                    isCustomTestTime = isCustomTestTime
                 )
 
                 val fgsStarted = runCatching {
@@ -56,7 +61,17 @@ class PrayerAlarmReceiver : BroadcastReceiver() {
 
                 if (!fgsStarted) {
                     val waitLatch = CountDownLatch(1)
-                    if (isTestAlarm || prayerType == null) {
+                    if (isCustomTestTime) {
+                        PrayerNotificationHelper.showCustomTestTimeNotification(
+                            context = context,
+                            timeFormatted = prayerTime,
+                            cityName = cityName,
+                            soundPreset = soundPreset,
+                            customSoundUri = customUri,
+                            soundDurationSeconds = soundDurationSec,
+                            onPlaybackFinished = { waitLatch.countDown() }
+                        )
+                    } else if (isTestAlarm || prayerType == null) {
                         PrayerNotificationHelper.showTestNotification(
                             context = context,
                             cityName = cityName,

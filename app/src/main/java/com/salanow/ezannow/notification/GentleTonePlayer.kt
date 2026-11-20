@@ -51,7 +51,7 @@ object GentleTonePlayer {
         preset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1,
         customUriString: String = "",
         durationSeconds: Int = DEFAULT_DURATION_SECONDS,
-        useNotificationStream: Boolean = false,
+        useAlarmStream: Boolean = false,
         onFinished: (() -> Unit)? = null
     ) {
         if (preset == NotificationSoundPreset.SILENT) {
@@ -76,7 +76,7 @@ object GentleTonePlayer {
                     preset = preset,
                     customUriString = customUriString,
                     durationMs = durationMs,
-                    useNotificationStream = useNotificationStream
+                    useAlarmStream = useAlarmStream
                 )
                 if (!started && preset == NotificationSoundPreset.CUSTOM_URI) {
                     val fallbackStarted = startPlayerForPreset(
@@ -84,7 +84,7 @@ object GentleTonePlayer {
                         preset = NotificationSoundPreset.MELODI_1,
                         customUriString = "",
                         durationMs = durationMs,
-                        useNotificationStream = useNotificationStream
+                        useAlarmStream = useAlarmStream
                     )
                     if (!fallbackStarted) {
                         pendingFinished = stopAndReleaseLocked()
@@ -109,12 +109,16 @@ object GentleTonePlayer {
         preset: NotificationSoundPreset,
         customUriString: String,
         durationMs: Long,
-        useNotificationStream: Boolean
+        useAlarmStream: Boolean
     ): Boolean {
         return runCatching {
-            val attrs = if (useNotificationStream) {
+            val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val canPlayAlarm = audioManager != null &&
+                audioManager.getStreamVolume(AudioManager.STREAM_ALARM) > 0
+            val useAlarmAttrs = useAlarmStream && canPlayAlarm
+            val attrs = if (useAlarmAttrs) {
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             } else {
@@ -124,7 +128,7 @@ object GentleTonePlayer {
                     .build()
             }
 
-            requestTransientAudioFocusLocked(appContext, attrs)
+            requestTransientAudioFocusLocked(appContext, attrs, useAlarmAttrs)
 
             val player = MediaPlayer()
             activePlayer = player
@@ -199,7 +203,8 @@ object GentleTonePlayer {
 
     private fun requestTransientAudioFocusLocked(
         appContext: Context,
-        attrs: AudioAttributes
+        attrs: AudioAttributes,
+        useAlarmStream: Boolean
     ) {
         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
         activeAudioManager = am
@@ -216,7 +221,7 @@ object GentleTonePlayer {
             runCatching {
                 am.requestAudioFocus(
                     null,
-                    AudioManager.STREAM_NOTIFICATION,
+                    if (useAlarmStream) AudioManager.STREAM_ALARM else AudioManager.STREAM_MUSIC,
                     AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
                 )
             }

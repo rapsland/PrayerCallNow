@@ -52,6 +52,9 @@ data class UserSettings(
     val notificationSoundPreset: NotificationSoundPreset = NotificationSoundPreset.MELODI_1,
     val notificationSoundDurationSeconds: Int = DEFAULT_SOUND_DURATION_SECONDS,
     val persistentStatusNotificationEnabled: Boolean = true,
+    val customTestTimeEnabled: Boolean = false,
+    val customTestTimeHour: Int = 12,
+    val customTestTimeMinute: Int = 0,
     val customNotificationSoundUri: String = "",
     val customNotificationSoundName: String = "",
     val dhikrList: List<DhikrItem> = defaultDhikrPresets(),
@@ -60,6 +63,13 @@ data class UserSettings(
     val totalDhikrCount: Long = 0L,
     val qadaCounts: Map<QadaPrayerType, Int> = QadaPrayerType.entries.associateWith { 0 }
 ) {
+    fun customTestTimeFormatted(): String = String.format(
+        java.util.Locale.US,
+        "%02d:%02d",
+        customTestTimeHour.coerceIn(0, 23),
+        customTestTimeMinute.coerceIn(0, 59)
+    )
+
     companion object {
         const val DEFAULT_SOUND_DURATION_SECONDS = 4
         const val MIN_SOUND_DURATION_SECONDS = 1
@@ -115,6 +125,9 @@ class UserSettingsRepository(private val context: Context) {
         val SOUND_PRESET = stringPreferencesKey("notif_sound_preset")
         val SOUND_DURATION_SECONDS = intPreferencesKey("notif_sound_duration_sec")
         val PERSISTENT_STATUS_NOTIF = booleanPreferencesKey("persistent_status_notif")
+        val CUSTOM_TEST_ENABLED = booleanPreferencesKey("custom_test_time_enabled")
+        val CUSTOM_TEST_HOUR = intPreferencesKey("custom_test_time_hour")
+        val CUSTOM_TEST_MINUTE = intPreferencesKey("custom_test_time_minute")
         val CUSTOM_SOUND_URI = stringPreferencesKey("notif_custom_sound_uri")
         val CUSTOM_SOUND_NAME = stringPreferencesKey("notif_custom_sound_name")
 
@@ -234,6 +247,20 @@ class UserSettingsRepository(private val context: Context) {
     suspend fun setPersistentStatusNotificationEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[Keys.PERSISTENT_STATUS_NOTIF] = enabled
+        }
+    }
+
+    suspend fun setCustomTestTimeEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.CUSTOM_TEST_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setCustomTestTime(hour: Int, minute: Int, enable: Boolean = true) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.CUSTOM_TEST_HOUR] = hour.coerceIn(0, 23)
+            prefs[Keys.CUSTOM_TEST_MINUTE] = minute.coerceIn(0, 59)
+            prefs[Keys.CUSTOM_TEST_ENABLED] = enable
         }
     }
 
@@ -389,6 +416,9 @@ class UserSettingsRepository(private val context: Context) {
             notificationSoundPreset = soundPreset,
             notificationSoundDurationSeconds = soundDurationSeconds,
             persistentStatusNotificationEnabled = prefs[Keys.PERSISTENT_STATUS_NOTIF] ?: true,
+            customTestTimeEnabled = prefs[Keys.CUSTOM_TEST_ENABLED] ?: false,
+            customTestTimeHour = (prefs[Keys.CUSTOM_TEST_HOUR] ?: 12).coerceIn(0, 23),
+            customTestTimeMinute = (prefs[Keys.CUSTOM_TEST_MINUTE] ?: 0).coerceIn(0, 59),
             customNotificationSoundUri = prefs[Keys.CUSTOM_SOUND_URI] ?: "",
             customNotificationSoundName = prefs[Keys.CUSTOM_SOUND_NAME] ?: "",
             dhikrList = dhikrList,

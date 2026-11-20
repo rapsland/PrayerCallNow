@@ -22,12 +22,14 @@ object PrayerAlarmScheduler {
     private const val REQ_MIDNIGHT_REFRESH = 4102
     private const val REQ_DELAYED_TEST = 4103
     private const val REQ_STATUS_REFRESH = 4104
+    private const val REQ_CUSTOM_TEST_ALARM = 4105
 
     const val EXTRA_KIND = "extra_kind"
     const val KIND_PRAYER = "prayer"
     const val KIND_REFRESH = "refresh"
     const val KIND_DELAYED_TEST = "delayed_test"
     const val KIND_STATUS_REFRESH = "status_refresh"
+    const val KIND_CUSTOM_TEST_TIME = "custom_test_time"
     const val EXTRA_PRAYER_NAME = "extra_prayer_name"
     const val EXTRA_PRAYER_TIME = "extra_prayer_time"
     const val EXTRA_CITY_NAME = "extra_city_name"
@@ -172,6 +174,65 @@ object PrayerAlarmScheduler {
             }
         } else {
             cancelStatusRefreshAlarm(context, alarmManager)
+        }
+
+        if (settings.customTestTimeEnabled) {
+            val customTriggerMs = computeNextCustomTestTriggerMillis(
+                nowMillis = nowMs,
+                timeZoneId = settings.location.timeZoneId,
+                hour = settings.customTestTimeHour,
+                minute = settings.customTestTimeMinute
+            )
+            val customIntent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                putExtra(EXTRA_KIND, KIND_CUSTOM_TEST_TIME)
+                putExtra(EXTRA_PRAYER_TIME, settings.customTestTimeFormatted())
+                putExtra(EXTRA_CITY_NAME, settings.location.name)
+                putExtra(EXTRA_SOUND_PRESET, settings.notificationSoundPreset.name)
+                putExtra(EXTRA_CUSTOM_SOUND_URI, settings.customNotificationSoundUri)
+                putExtra(EXTRA_SOUND_DURATION_SEC, settings.notificationSoundDurationSeconds)
+            }
+            val customPi = PendingIntent.getBroadcast(
+                context,
+                REQ_CUSTOM_TEST_ALARM,
+                customIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            setAlarmClockSafe(alarmManager, context, customTriggerMs, customPi)
+        } else {
+            cancelCustomTestAlarm(context, alarmManager)
+        }
+    }
+
+    fun computeNextCustomTestTriggerMillis(
+        nowMillis: Long,
+        timeZoneId: String,
+        hour: Int,
+        minute: Int
+    ): Long {
+        val tz = TimeZone.getTimeZone(timeZoneId)
+        val cal = Calendar.getInstance(tz).apply {
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
+            set(Calendar.MINUTE, minute.coerceIn(0, 59))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (cal.timeInMillis <= nowMillis + 1_500L) {
+            cal.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        return cal.timeInMillis
+    }
+
+    private fun cancelCustomTestAlarm(context: Context, alarmManager: AlarmManager) {
+        val cancelIntent = Intent(context, PrayerAlarmReceiver::class.java)
+        val pi = PendingIntent.getBroadcast(
+            context,
+            REQ_CUSTOM_TEST_ALARM,
+            cancelIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pi != null) {
+            alarmManager.cancel(pi)
         }
     }
 

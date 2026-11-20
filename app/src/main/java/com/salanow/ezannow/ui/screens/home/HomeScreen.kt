@@ -59,6 +59,7 @@ fun HomeScreen(
     onSelectDate: (SimpleDate) -> Unit,
     onJumpToToday: () -> Unit,
     onTogglePrayerNotification: (PrayerType) -> Unit,
+    onToggleCustomTestTime: (Boolean) -> Unit,
     onToggleTestPlayPause: () -> Unit,
     onTestMinutesChange: (Float) -> Unit,
     onTestSpeedSelect: (SimulationSpeed) -> Unit,
@@ -465,6 +466,86 @@ fun HomeScreen(
                             },
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+                }
+            }
+        }
+
+        // Optional Developer Custom Test Time Row
+        if (uiState.settings.customTestTimeEnabled) {
+            item(key = "custom_test_prayer_row") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = EzanIcons.BellOn,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Özel Test Vakti",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.secondary
+                                ) {
+                                    Text(
+                                        text = "Geliştirici",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Zaman simülasyonu olmadan gerçek alarm testi",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = uiState.settings.customTestTimeFormatted(),
+                            style = TabularTimeStyle,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { onToggleCustomTestTime(false) },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = EzanIcons.BellOn,
+                                contentDescription = "Özel Test Vaktini Kapat",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
